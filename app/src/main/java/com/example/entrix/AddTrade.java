@@ -2,77 +2,97 @@ package com.example.entrix;
 
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
-
+import android.util.Log;
+import android.widget.*;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
+
+import com.example.entrix.api.BybitClient;
+
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 
 public class AddTrade extends AppCompatActivity {
 
+    private AutoCompleteTextView coinDropdown;
+    private RadioGroup directionGroup;
+    private EditText entryInput, tpInput, slInput, usdtInput, leverageInput;
+    private Button addTradeButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        AppCompatDelegate.setDefaultNightMode(
-                AppCompatDelegate.MODE_NIGHT_YES);
-
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_addtrade);
 
-        AutoCompleteTextView coinDropdown = findViewById(R.id.coinDropdown);
+        coinDropdown = findViewById(R.id.coinDropdown);
+        directionGroup = findViewById(R.id.directionGroup);
+        entryInput = findViewById(R.id.entryInput);
+        tpInput = findViewById(R.id.tpInput);
+        slInput = findViewById(R.id.slInput);
+        usdtInput = findViewById(R.id.usdtInput);
+        leverageInput = findViewById(R.id.leverageInput);
+        addTradeButton = findViewById(R.id.addTradeButton);
 
+        setupCoins();
+        addTradeButton.setOnClickListener(v -> confirmTrade());
+
+        // ТЕСТ API КЛЮЧА ПРИ ЗАПУСКЕ
+        testApiKey();
+    }
+
+    private void testApiKey() {
+        new Thread(() -> {
+            try {
+                Log.d("AddTrade", "API client created");
+
+                runOnUiThread(() ->
+                        Toast.makeText(
+                                AddTrade.this,
+                                "API client initialized",
+                                Toast.LENGTH_LONG
+                        ).show()
+                );
+
+            } catch (Exception e) {
+
+                Log.e("AddTrade", "API test error", e);
+
+                runOnUiThread(() ->
+                        Toast.makeText(
+                                AddTrade.this,
+                                "❌ Ошибка теста: " + e.getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show()
+                );
+            }
+        }).start();
+    }
+    private void setupCoins() {
         ArrayList<String> coins = new ArrayList<>();
-        coins.add("BTC");
-        coins.add("ETH");
-        coins.add("SOL");
-        coins.add("HYPE");
-        coins.add("AAVE");
-        coins.add("AVAX");
-        coins.add("PNUT");
-        coins.add("IMX");
-        coins.add("FARTCOIN");
-        coins.add("SUI");
-        coins.add("XRP");
-        coins.add("NEAR");
-        coins.add("LINK");
-        coins.add("1000PEPE");
-        coins.add("POPCAT");
-        coins.add("DOGE");
-        coins.add("SEI");
+        coins.add("BTCUSDT");
+        coins.add("ETHUSDT");
+        coins.add("SOLUSDT");
 
-
-
-
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_dropdown_item_1line,
-                coins
-        ) {
-
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
+                this, android.R.layout.simple_dropdown_item_1line, coins) {
             @Override
-            public android.view.View getView(int position,
-                                             android.view.View convertView,
-                                             android.view.ViewGroup parent) {
-
-                android.widget.TextView textView =
-                        (android.widget.TextView) super.getView(position, convertView, parent);
-
+            public android.view.View getView(int position, android.view.View convertView, android.view.ViewGroup parent) {
+                TextView textView = (TextView) super.getView(position, convertView, parent);
                 String coin = getItem(position);
 
-                int icon = getIcon(coin);
-
-                Drawable drawable = ContextCompat.getDrawable(AddTrade.this, icon);
-
-                if (drawable != null) {
-                    drawable.setBounds(0, 0, 60, 60);
-                    textView.setCompoundDrawables(drawable, null, null, null);
-                    textView.setCompoundDrawablePadding(20);
+                if (coin != null) {
+                    Drawable drawable = ContextCompat.getDrawable(AddTrade.this, getIcon(coin));
+                    if (drawable != null) {
+                        drawable.setBounds(0, 0, 60, 60);
+                        textView.setCompoundDrawables(drawable, null, null, null);
+                        textView.setCompoundDrawablePadding(20);
+                    }
+                    textView.setText(coin);
                 }
-
-                textView.setText(coin);
-
                 return textView;
             }
         };
@@ -80,27 +100,111 @@ public class AddTrade extends AppCompatActivity {
         coinDropdown.setAdapter(adapter);
     }
 
+    private String getDirection() {
+        int id = directionGroup.getCheckedRadioButtonId();
+        return (id == R.id.longBtn) ? "Long" : "Short";
+    }
+
+    private String getSide(String direction) {
+        return direction.equals("Long") ? "Buy" : "Sell";
+    }
+
+    private void confirmTrade() {
+        String coin = coinDropdown.getText().toString().trim();
+        if (coin.isEmpty()) {
+            Toast.makeText(this, "Выберите монету", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            String entryStr = entryInput.getText().toString().trim().replace(',', '.');
+            String usdtStr = usdtInput.getText().toString().trim().replace(',', '.');
+            String leverageStr = leverageInput.getText().toString().trim().replace(',', '.');
+            String tpStr = tpInput.getText().toString().trim().replace(',', '.');
+            String slStr = slInput.getText().toString().trim().replace(',', '.');
+
+            if (entryStr.isEmpty() || usdtStr.isEmpty() || leverageStr.isEmpty()) {
+                Toast.makeText(this, "Заполните Entry, USDT и Leverage", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            final double entry = Double.parseDouble(entryStr);
+            final double usdt = Double.parseDouble(usdtStr);
+            final double leverage = Double.parseDouble(leverageStr);
+
+            if (entry <= 0 || usdt <= 0 || leverage <= 0) {
+                Toast.makeText(this, "Все значения должны быть > 0", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            String direction = getDirection();
+            String side = getSide(direction);
+
+            // Логика в отдельном потоке
+            new Thread(() -> {
+                try {
+                    BybitClient client = new BybitClient(
+                            "API_Key",
+                            "API_SELECT"
+                    );
+
+                    double currentPrice = client.getCurrentPrice(coin);
+                    Log.d("AddTrade", "Current market price: " + currentPrice);
+
+                    if ("Buy".equals(side) && entry >= currentPrice) {
+                        runOnUiThread(() -> Toast.makeText(this,
+                                "❌ Long: Entry должен быть НИЖЕ текущей цены (" + currentPrice + ")",
+                                Toast.LENGTH_LONG).show());
+                        return;
+                    }
+                    if ("Sell".equals(side) && entry <= currentPrice) {
+                        runOnUiThread(() -> Toast.makeText(this,
+                                "❌ Short: Entry должен быть ВЫШЕ текущей цены (" + currentPrice + ")",
+                                Toast.LENGTH_LONG).show());
+                        return;
+                    }
+
+                    client.setLeverage(coin, (int) leverage);
+
+                    String calculatedQty = client.calculateQty(coin, usdt, entry, leverage);
+                    Log.d("AddTrade", "✅ Calculated qty: " + calculatedQty);
+
+                    // Выставляем ордер
+                    String result = client.placeOrder(
+                            coin,
+                            side,
+                            calculatedQty,
+                            String.valueOf(entry),
+                            tpStr.isEmpty() ? null : tpStr,
+                            slStr.isEmpty() ? null : slStr,
+                            String.valueOf(leverage)
+                    );
+
+                    Log.d("AddTrade", "✅ Order placed: " + result);
+
+                    runOnUiThread(() -> Toast.makeText(this,
+                            "✅ Лимитный ордер (PostOnly) успешно выставлен!",
+                            Toast.LENGTH_LONG).show());
+
+                } catch (Exception e) {
+                    Log.e("AddTrade", "❌ Trade error", e);
+                    runOnUiThread(() -> Toast.makeText(this,
+                            "❌ " + e.getMessage(),
+                            Toast.LENGTH_LONG).show());
+                }
+            }).start();
+
+        } catch (NumberFormatException e) {
+            Toast.makeText(this, "Ошибка: Введите корректные числа", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Ошибка ввода: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private int getIcon(String coin) {
         switch (coin) {
-
-            case "BTC": return R.drawable.btc;
-            case "ETH": return R.drawable.eth;
-            case "SOL": return R.drawable.sol;
-            case "HYPE": return R.drawable.hype;
-            case "AAVE": return R.drawable.aave;
-            case "AVAX": return R.drawable.avax;
-            case "PNUT": return R.drawable.pnut;
-            case "IMX": return R.drawable.imx;
-            case "FARTCOIN": return R.drawable.fartcoin;
-            case "SUI": return R.drawable.sui;
-            case "XRP": return R.drawable.xrp;
-            case "NEAR": return R.drawable.near;
-            case "LINK": return R.drawable.link;
-            case "1000PEPE": return R.drawable.pepe;
-            case "POPCAT": return R.drawable.popcat;
-            case "DOGE": return R.drawable.doge;
-            case "SEI": return R.drawable.sei;
-
+            case "BTCUSDT": return R.drawable.btc;
+            case "ETHUSDT": return R.drawable.eth;
             default: return R.drawable.btc;
         }
     }
