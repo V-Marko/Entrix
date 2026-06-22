@@ -10,6 +10,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.example.entrix"
         minSdk = 24
@@ -18,6 +22,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "API_KEY", "\"AtPL5HGOxHDEb0vbGI\"")
+        buildConfigField("String", "API_SELECT", "\"vClVxKFsFs0bSIADe75FGoaKVPa9c2vobSoG\"")
     }
 
     buildTypes {
@@ -29,6 +36,7 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -38,11 +46,11 @@ android {
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

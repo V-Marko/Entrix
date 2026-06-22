@@ -8,6 +8,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
+import com.example.entrix.BuildConfig;
 
 import com.example.entrix.api.BybitClient;
 
@@ -21,6 +22,8 @@ public class AddTrade extends AppCompatActivity {
     private RadioGroup directionGroup;
     private EditText entryInput, tpInput, slInput, usdtInput, leverageInput;
     private Button addTradeButton;
+
+    private CryptoAddList cryptoAddList = new CryptoAddList();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +50,8 @@ public class AddTrade extends AppCompatActivity {
     private void testApiKey() {
         new Thread(() -> {
             try {
+
+
                 Log.d("AddTrade", "API client created");
 
                 runOnUiThread(() ->
@@ -73,9 +78,25 @@ public class AddTrade extends AppCompatActivity {
     }
     private void setupCoins() {
         ArrayList<String> coins = new ArrayList<>();
-        coins.add("BTCUSDT");
-        coins.add("ETHUSDT");
-        coins.add("SOLUSDT");
+        cryptoAddList.CoinsAdd(coins);
+//        coins.add("BTCUSDT");
+//        coins.add("ETHUSDT");
+//        coins.add("SOLUSDT");
+//        coins.add("AAVEUSDT");
+//        coins.add("AVAXUSDT");
+//        coins.add("PNUTUSDT");
+//        coins.add("IMXUSDT");
+//        coins.add("FARTCOINUSDT");
+//        coins.add("SUIUSDT");
+//        coins.add("XRPUSDT");
+//        coins.add("NEARUSDT");
+//        coins.add("HYPEUSDT");
+//        coins.add("LINKUSDT");
+//        coins.add("1000PEPEUSDT");
+//        coins.add("POPCATUSDT");
+//        coins.add("DOGEUSDT");
+//        coins.add("SEIUSDT");
+
 
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(
                 this, android.R.layout.simple_dropdown_item_1line, coins) {
@@ -144,13 +165,14 @@ public class AddTrade extends AppCompatActivity {
             new Thread(() -> {
                 try {
                     BybitClient client = new BybitClient(
-                            "API_Key",
-                            "API_SELECT"
+                            BuildConfig.API_KEY,
+                            BuildConfig.API_SELECT
                     );
-
+                    // Получаем текущую цену
                     double currentPrice = client.getCurrentPrice(coin);
                     Log.d("AddTrade", "Current market price: " + currentPrice);
 
+                    // СТРОГАЯ ПРОВЕРКА — чтобы ордер был настоящим лимитом
                     if ("Buy".equals(side) && entry >= currentPrice) {
                         runOnUiThread(() -> Toast.makeText(this,
                                 "❌ Long: Entry должен быть НИЖЕ текущей цены (" + currentPrice + ")",
@@ -164,8 +186,10 @@ public class AddTrade extends AppCompatActivity {
                         return;
                     }
 
+                    // Устанавливаем леверидж
                     client.setLeverage(coin, (int) leverage);
 
+                    // Рассчитываем количество
                     String calculatedQty = client.calculateQty(coin, usdt, entry, leverage);
                     Log.d("AddTrade", "✅ Calculated qty: " + calculatedQty);
 
@@ -202,10 +226,6 @@ public class AddTrade extends AppCompatActivity {
     }
 
     private int getIcon(String coin) {
-        switch (coin) {
-            case "BTCUSDT": return R.drawable.btc;
-            case "ETHUSDT": return R.drawable.eth;
-            default: return R.drawable.btc;
-        }
+        return cryptoAddList.getCoinIcon(coin);
     }
 }
