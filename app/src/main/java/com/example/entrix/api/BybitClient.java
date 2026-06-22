@@ -223,4 +223,100 @@ public class BybitClient {
 
         return sb.toString();
     }
+
+
+
+    public JSONArray getActiveOrders() throws Exception {
+
+        String endpoint = "/v5/order/realtime";
+        String queryString = "category=linear&settleCoin=USDT";
+
+        String url = BASE_URL + endpoint + "?" + queryString;
+
+        long timestamp = System.currentTimeMillis();
+
+        String signature = generateSignatureForGet(timestamp, queryString);
+
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("X-BAPI-API-KEY", apiKey)
+                .addHeader("X-BAPI-SIGN", signature)
+                .addHeader("X-BAPI-TIMESTAMP", String.valueOf(timestamp))
+                .addHeader("X-BAPI-RECV-WINDOW", RECV_WINDOW)
+                .get()
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+
+            String res = response.body().string();
+            Log.d("BYBIT_RAW", res);
+
+            JSONObject json = new JSONObject(res);
+
+            if (!"0".equals(json.optString("retCode"))) {
+                throw new Exception(json.optString("retMsg"));
+            }
+
+            return json.getJSONObject("result").getJSONArray("list");
+        }
+    }
+    private String generateSignatureForGet(long timestamp, String queryString) throws Exception {
+
+        String data = timestamp + apiKey + RECV_WINDOW + queryString;
+
+        Mac mac = Mac.getInstance("HmacSHA256");
+        SecretKeySpec keySpec = new SecretKeySpec(
+                apiSecret.getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256"
+        );
+
+        mac.init(keySpec);
+
+        byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+
+        StringBuilder sb = new StringBuilder();
+        for (byte b : hash) {
+            sb.append(String.format("%02x", b));
+        }
+
+        return sb.toString();
+    }
+
+
+
+    public void cancelOrder(String symbol, String orderId) throws Exception {
+
+        String endpoint = BASE_URL + "/v5/order/cancel";
+        long timestamp = System.currentTimeMillis();
+
+        JSONObject body = new JSONObject();
+        body.put("category", "linear");
+        body.put("symbol", symbol);
+        body.put("orderId", orderId);
+
+        String payload = body.toString();
+        String signature = generateSignature(timestamp, payload);
+
+        Request request = new Request.Builder()
+                .url(endpoint)
+                .addHeader("X-BAPI-API-KEY", apiKey)
+                .addHeader("X-BAPI-SIGN", signature)
+                .addHeader("X-BAPI-TIMESTAMP", String.valueOf(timestamp))
+                .addHeader("X-BAPI-RECV-WINDOW", RECV_WINDOW)
+                .addHeader("Content-Type", "application/json")
+                .post(RequestBody.create(payload, MediaType.get("application/json; charset=utf-8")))
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+
+            String res = response.body().string();
+            Log.d("BybitClient", "CANCEL RESPONSE: " + res);
+
+            JSONObject json = new JSONObject(res);
+
+            if (!"0".equals(json.optString("retCode"))) {
+                throw new Exception(json.optString("retMsg"));
+            }
+        }
+    }
 }

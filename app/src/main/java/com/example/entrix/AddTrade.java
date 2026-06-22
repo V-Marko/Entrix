@@ -4,15 +4,12 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.*;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
-import com.example.entrix.BuildConfig;
 
 import com.example.entrix.api.BybitClient;
 
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 
@@ -43,7 +40,6 @@ public class AddTrade extends AppCompatActivity {
         setupCoins();
         addTradeButton.setOnClickListener(v -> confirmTrade());
 
-        // ТЕСТ API КЛЮЧА ПРИ ЗАПУСКЕ
         testApiKey();
     }
 
@@ -69,7 +65,7 @@ public class AddTrade extends AppCompatActivity {
                 runOnUiThread(() ->
                         Toast.makeText(
                                 AddTrade.this,
-                                "❌ Ошибка теста: " + e.getMessage(),
+                                "Ошибка теста: " + e.getMessage(),
                                 Toast.LENGTH_LONG
                         ).show()
                 );
@@ -79,24 +75,6 @@ public class AddTrade extends AppCompatActivity {
     private void setupCoins() {
         ArrayList<String> coins = new ArrayList<>();
         cryptoAddList.CoinsAdd(coins);
-//        coins.add("BTCUSDT");
-//        coins.add("ETHUSDT");
-//        coins.add("SOLUSDT");
-//        coins.add("AAVEUSDT");
-//        coins.add("AVAXUSDT");
-//        coins.add("PNUTUSDT");
-//        coins.add("IMXUSDT");
-//        coins.add("FARTCOINUSDT");
-//        coins.add("SUIUSDT");
-//        coins.add("XRPUSDT");
-//        coins.add("NEARUSDT");
-//        coins.add("HYPEUSDT");
-//        coins.add("LINKUSDT");
-//        coins.add("1000PEPEUSDT");
-//        coins.add("POPCATUSDT");
-//        coins.add("DOGEUSDT");
-//        coins.add("SEIUSDT");
-
 
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(
                 this, android.R.layout.simple_dropdown_item_1line, coins) {
@@ -161,39 +139,33 @@ public class AddTrade extends AppCompatActivity {
             String direction = getDirection();
             String side = getSide(direction);
 
-            // Логика в отдельном потоке
             new Thread(() -> {
                 try {
                     BybitClient client = new BybitClient(
                             BuildConfig.API_KEY,
                             BuildConfig.API_SELECT
                     );
-                    // Получаем текущую цену
                     double currentPrice = client.getCurrentPrice(coin);
                     Log.d("AddTrade", "Current market price: " + currentPrice);
 
-                    // СТРОГАЯ ПРОВЕРКА — чтобы ордер был настоящим лимитом
                     if ("Buy".equals(side) && entry >= currentPrice) {
                         runOnUiThread(() -> Toast.makeText(this,
-                                "❌ Long: Entry должен быть НИЖЕ текущей цены (" + currentPrice + ")",
+                                " Long: Entry должен быть НИЖЕ текущей цены (" + currentPrice + ")",
                                 Toast.LENGTH_LONG).show());
                         return;
                     }
                     if ("Sell".equals(side) && entry <= currentPrice) {
                         runOnUiThread(() -> Toast.makeText(this,
-                                "❌ Short: Entry должен быть ВЫШЕ текущей цены (" + currentPrice + ")",
+                                "Short: Entry должен быть ВЫШЕ текущей цены (" + currentPrice + ")",
                                 Toast.LENGTH_LONG).show());
                         return;
                     }
 
-                    // Устанавливаем леверидж
                     client.setLeverage(coin, (int) leverage);
 
-                    // Рассчитываем количество
                     String calculatedQty = client.calculateQty(coin, usdt, entry, leverage);
-                    Log.d("AddTrade", "✅ Calculated qty: " + calculatedQty);
+                    Log.d("AddTrade", "Calculated qty: " + calculatedQty);
 
-                    // Выставляем ордер
                     String result = client.placeOrder(
                             coin,
                             side,
@@ -204,16 +176,16 @@ public class AddTrade extends AppCompatActivity {
                             String.valueOf(leverage)
                     );
 
-                    Log.d("AddTrade", "✅ Order placed: " + result);
+                    Log.d("AddTrade", "Order placed: " + result);
 
                     runOnUiThread(() -> Toast.makeText(this,
-                            "✅ Лимитный ордер (PostOnly) успешно выставлен!",
+                            "Лимитный ордер успешно!",
                             Toast.LENGTH_LONG).show());
 
                 } catch (Exception e) {
-                    Log.e("AddTrade", "❌ Trade error", e);
+                    Log.e("AddTrade", "", e);
                     runOnUiThread(() -> Toast.makeText(this,
-                            "❌ " + e.getMessage(),
+                            "trade error: " + e.getMessage(),
                             Toast.LENGTH_LONG).show());
                 }
             }).start();
